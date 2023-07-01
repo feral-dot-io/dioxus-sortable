@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_sortable::{use_sorter, PartialOrdBy, SortBy, Sortable, Sorter};
+use dioxus_sortable::{use_sorter, NullHandling, PartialOrdBy, SortBy, Sortable, Sorter, Th};
 use std::cmp::Ordering;
 
 fn main() {
@@ -13,23 +13,28 @@ pub fn view(cx: Scope) -> Element {
     let sorter = use_sorter::<MyStructField>(cx);
     sorter.sort(data.as_mut_slice());
 
+    fn fmt_f64(f: Option<f64>) -> String {
+        f.map_or_else(|| "-".to_string(), |x| x.to_string())
+    }
+
     cx.render(rsx! {
         table {
             thead {
                 tr {
-                    sorter.Th(cx, MyStructField::First, rsx!("First") )
-                    sorter.Th(cx, MyStructField::Second, rsx!("Second") )
-                    sorter.Th(cx, MyStructField::Third, rsx!("Third") )
+                    Th { sorter: sorter, field: MyStructField::First, rsx!("First") }
+                    Th { sorter: sorter, field: MyStructField::Second, rsx!("Second") }
+                    Th { sorter: sorter, field: MyStructField::Third, rsx!("Third") }
+                    Th { sorter: sorter, field: MyStructField::Fourth, rsx!("Fourth") }
                 }
             }
             tbody {
                 data.iter().map(|row| {
-                    let third = row.third.map_or_else(|| "-".to_string(), |x| x.to_string());
                     rsx! {
                         tr {
                             td { "{row.first}" }
                             td { "{row.second}" }
-                            td { "{third}" }
+                            td { "{fmt_f64(row.third)}" }
+                            td { "{fmt_f64(row.fourth)}" }
                         }
                     }
                 })
@@ -43,6 +48,7 @@ pub struct MyStruct {
     first: String,
     second: i32,
     third: Option<f64>,
+    fourth: Option<f64>,
 }
 
 fn load_data() -> Vec<MyStruct> {
@@ -52,6 +58,11 @@ fn load_data() -> Vec<MyStruct> {
             second: i * 2,
             third: if i % 4 != 3 {
                 Some((10 - i) as f64 + (i as f64) / 10.0)
+            } else {
+                None
+            },
+            fourth: if i % 4 != 2 {
+                Some((i * 10) as f64)
             } else {
                 None
             },
@@ -65,28 +76,39 @@ pub enum MyStructField {
     #[default]
     Second,
     Third,
+    Fourth,
 }
 
 impl PartialOrdBy<MyStruct> for MyStructField {
     fn partial_cmp_by(&self, a: &MyStruct, b: &MyStruct) -> Option<Ordering> {
+        fn cmp_f64(a: Option<f64>, b: Option<f64>) -> Option<Ordering> {
+            a.unwrap_or(f64::NAN).partial_cmp(&b.unwrap_or(f64::NAN))
+        }
+
         use MyStructField::*;
         match self {
             First => a.first.partial_cmp(&b.first),
             Second => a.second.partial_cmp(&b.second),
-            Third => a
-                .third
-                .unwrap_or(f64::NAN)
-                .partial_cmp(&b.third.unwrap_or(f64::NAN)),
+            Third => cmp_f64(a.third, b.third),
+            Fourth => cmp_f64(a.fourth, b.fourth),
         }
     }
 }
 
 impl Sortable for MyStructField {
-    fn sort_by(&self) -> SortBy {
+    fn sort_by(&self) -> Option<SortBy> {
         match self {
             MyStructField::First => SortBy::increasing(),
             MyStructField::Second => SortBy::increasing_or_decreasing(),
-            MyStructField::Third => SortBy::decreasing_or_increasing().nulls_first(),
+            MyStructField::Third => SortBy::increasing_or_decreasing(),
+            MyStructField::Fourth => SortBy::decreasing_or_increasing(),
+        }
+    }
+
+    fn null_handling(&self) -> NullHandling {
+        match self {
+            MyStructField::Fourth => NullHandling::First,
+            _ => NullHandling::default(),
         }
     }
 }
