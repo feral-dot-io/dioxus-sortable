@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_sortable::{use_sorter, PartialOrdBy, Sortable, Sorter};
+use dioxus_sortable::{use_sorter, PartialOrdBy, SortBy, Sortable, Sorter};
 use std::cmp::Ordering;
 
 fn main() {
@@ -49,7 +49,7 @@ fn load_data() -> Vec<MyStruct> {
     (0..10)
         .map(|i| MyStruct {
             first: format!("#{i}"),
-            second: i,
+            second: i * 2,
             third: if i % 4 != 3 {
                 Some((10 - i) as f64 + (i as f64) / 10.0)
             } else {
@@ -77,6 +77,16 @@ impl PartialOrdBy<MyStruct> for MyStructField {
                 .third
                 .unwrap_or(f64::NAN)
                 .partial_cmp(&b.third.unwrap_or(f64::NAN)),
+        }
+    }
+}
+
+impl Sortable for MyStructField {
+    fn sort_by(&self) -> SortBy {
+        match self {
+            MyStructField::First => SortBy::increasing(),
+            MyStructField::Second => SortBy::increasing_or_decreasing(),
+            MyStructField::Third => SortBy::decreasing_or_increasing().nulls_first(),
         }
     }
 }

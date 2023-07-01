@@ -5,19 +5,47 @@ use std::cmp::Ordering;
 pub struct Sorter<'a, F: 'static> {
     field: &'a UseState<F>,
     direction: &'a UseState<Direction>,
-    nulls: NullHandling,
-}
-
-pub trait PartialOrdBy<T> {
-    fn partial_cmp_by(&self, a: &T, b: &T) -> Option<Ordering>;
-
-    fn sortable(&self) -> Sortable {
-        Sortable::default()
-    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub enum Sortable {
+enum Direction {
+    #[default]
+    Ascending,
+    Descending,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+enum NullHandling {
+    First,
+    #[default]
+    Last,
+}
+
+impl Direction {
+    pub fn invert(&self) -> Self {
+        match self {
+            Self::Ascending => Self::Descending,
+            Self::Descending => Self::Ascending,
+        }
+    }
+}
+
+pub trait PartialOrdBy<T>: PartialEq {
+    fn partial_cmp_by(&self, a: &T, b: &T) -> Option<Ordering>;
+}
+
+pub trait Sortable: PartialEq {
+    fn sort_by(&self) -> SortBy;
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct SortBy {
+    options: SortOptions,
+    nulls: NullHandling,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+enum SortOptions {
     Unsortable,
     Increasing,
     Decreasing,
@@ -26,61 +54,93 @@ pub enum Sortable {
     DecreasingOrIncreasing,
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub enum Direction {
-    #[default]
-    Ascending,
-    Descending,
+impl SortBy {
+    pub fn unsortable() -> Self {
+        Self {
+            options: SortOptions::Unsortable,
+            nulls: NullHandling::default(),
+        }
+    }
+    pub fn increasing() -> Self {
+        Self {
+            options: SortOptions::Increasing,
+            nulls: NullHandling::default(),
+        }
+    }
+    pub fn decreasing() -> Self {
+        Self {
+            options: SortOptions::Decreasing,
+            nulls: NullHandling::default(),
+        }
+    }
+    pub fn increasing_or_decreasing() -> Self {
+        Self {
+            options: SortOptions::IncreasingOrDecreasing,
+            nulls: NullHandling::default(),
+        }
+    }
+    pub fn decreasing_or_increasing() -> Self {
+        Self {
+            options: SortOptions::DecreasingOrIncreasing,
+            nulls: NullHandling::default(),
+        }
+    }
+
+    pub fn nulls_first(&self) -> Self {
+        Self {
+            nulls: NullHandling::First,
+            ..*self
+        }
+    }
+    pub fn nulls_last(&self) -> Self {
+        Self {
+            nulls: NullHandling::Last,
+            ..*self
+        }
+    }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub enum NullHandling {
-    First,
-    #[default]
-    Last,
+impl SortOptions {
+    fn initial_direction(&self) -> Direction {
+        use Direction::*;
+        use SortOptions::*;
+        match self {
+            Unsortable => Direction::default(),
+            Increasing => Ascending,
+            Decreasing => Descending,
+            IncreasingOrDecreasing => Ascending,
+            DecreasingOrIncreasing => Descending,
+        }
+    }
 }
 
-pub fn use_sorter<F: Default>(cx: &ScopeState) -> Sorter<'_, F> {
-    use_sorter_with(
-        cx,
-        F::default(),
-        Direction::default(),
-        NullHandling::default(),
-    )
-}
+// TODO add builder to set initial sort params + configurable form
 
-pub fn use_sorter_with<T>(
-    cx: &ScopeState,
-    field: T,
-    direction: Direction,
-    nulls: NullHandling,
-) -> Sorter<'_, T> {
+pub fn use_sorter<F: Sortable + Default>(cx: &ScopeState) -> Sorter<'_, F> {
+    let field = F::default();
+    let initial_dir = field.sort_by().options.initial_direction();
     let sorter = use_state(cx, || field);
-    let direction = use_state(cx, || direction);
+    let direction = use_state(cx, || initial_dir);
     Sorter {
         field: sorter,
         direction,
-        nulls,
     }
 }
 
 #[derive(Props)]
-pub struct SortableThProps<'a, F: 'static> {
+pub struct ThProps<'a, F: 'static> {
     sorter: Sorter<'a, F>,
     field: F,
     children: Element<'a>,
 }
 
 #[allow(non_snake_case)]
-pub fn Th<'a, F, T>(cx: Scope<'a, SortableThProps<'a, F>>) -> Element<'a>
-where
-    F: Copy + PartialEq + PartialOrdBy<T>,
-{
+pub fn Th<'a, F: Copy + Sortable>(cx: Scope<'a, ThProps<'a, F>>) -> Element<'a> {
     let sorter = cx.props.sorter;
     let field = cx.props.field;
     cx.render(rsx! {
         th {
-            onclick: move |_| sorter.set(field),
+            onclick: move |_| sorter.set_field(field),
             &cx.props.children
             ThStatus {
                 sorter: sorter,
@@ -97,27 +157,24 @@ pub struct ThStatusProps<'a, F: 'static> {
 }
 
 #[allow(non_snake_case)]
-pub fn ThStatus<'a, T, F>(cx: Scope<'a, ThStatusProps<'a, F>>) -> Element<'a>
-where
-    F: Copy + PartialEq + PartialOrdBy<T>,
-{
+pub fn ThStatus<'a, F: Copy + Sortable>(cx: Scope<'a, ThStatusProps<'a, F>>) -> Element<'a> {
     let sorter = &cx.props.sorter;
     let field = cx.props.field;
     let active = *sorter.field.get() == field;
     let active_dir = *sorter.direction.get();
 
-    use Direction::*;
-    use Sortable::*;
-    cx.render(match field.sortable() {
+    use SortOptions::*;
+    cx.render(match field.sort_by().options {
         Unsortable => rsx!(""),
         Increasing => rsx!(ThSpan { active: active, "↓" }),
         Decreasing => rsx!(ThSpan { active: active, "↑" }),
+
         IncreasingOrDecreasing | DecreasingOrIncreasing => rsx!(
         ThSpan {
             active: active,
             match (active, active_dir) {
-                (true, Ascending) => "↓",
-                (true, Descending) => "↑",
+                (true, Direction::Ascending) => "↓",
+                (true, Direction::Descending) => "↑",
                 (false, _) => "↕",
             }
         }),
@@ -143,20 +200,11 @@ fn ThSpan<'a>(cx: Scope<'a, ThSpan<'a>>) -> Element<'a> {
     })
 }
 
-impl Direction {
-    pub fn invert(&self) -> Self {
-        match self {
-            Self::Ascending => Self::Descending,
-            Self::Descending => Self::Ascending,
-        }
-    }
-}
-
 impl<'a, F> Sorter<'a, F> {
     #[allow(non_snake_case)]
-    pub fn Th<T>(&self, cx: &'a ScopeState, field: F, children: LazyNodes<'a, 'a>) -> Element<'a>
+    pub fn Th(&self, cx: &'a ScopeState, field: F, children: LazyNodes<'a, 'a>) -> Element<'a>
     where
-        F: Copy + PartialEq + PartialOrdBy<T>,
+        F: Copy + Sortable,
     {
         cx.render(rsx! {
             Th {
@@ -167,38 +215,35 @@ impl<'a, F> Sorter<'a, F> {
         })
     }
 
-    pub fn set<T>(&self, new: F)
+    pub fn set_field(&self, new: F)
     where
-        F: PartialOrdBy<T> + PartialEq,
+        F: Sortable,
     {
-        use Sortable::*;
-        let sortable = new.sortable();
-        // Unsortable field, do nothing
-        if sortable == Unsortable {
+        let sort_by = new.sort_by().options;
+        // Don't change if unsortable
+        if sort_by == SortOptions::Unsortable {
             return;
         }
         // Same field, invert direction
         if *self.field.get() == new {
             // Invert direction if both directions are allowed
-            if sortable == IncreasingOrDecreasing || sortable == DecreasingOrIncreasing {
+            use SortOptions::*;
+            if sort_by == IncreasingOrDecreasing || sort_by == DecreasingOrIncreasing {
                 self.direction.modify(|v| v.invert());
             }
         } else {
             // Otherwise set new field and direction
             self.field.set(new);
-            self.direction.set(match sortable {
-                Unsortable => unreachable!(),
-                Increasing | IncreasingOrDecreasing => Direction::Ascending,
-                Decreasing | DecreasingOrIncreasing => Direction::Descending,
-            });
+            self.direction.set(sort_by.initial_direction());
         }
     }
 
     pub fn sort<T>(&self, items: &mut [T])
     where
-        F: PartialOrdBy<T> + PartialEq,
+        F: PartialOrdBy<T> + Sortable,
     {
-        sort_by(self.field.get(), *self.direction.get(), self.nulls, items);
+        let nulls = self.field.sort_by().nulls;
+        sort_by(self.field.get(), *self.direction.get(), nulls, items);
     }
 }
 
