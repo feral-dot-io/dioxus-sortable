@@ -5,3 +5,8 @@ edition = "2021"
 
 [dependencies]
 dioxus = "0.3.2"
+
+[dev-dependencies]
+dioxus-web = "0.3.2"
+log = "0.4.19"
+wasm-logger = "0.2.0"
