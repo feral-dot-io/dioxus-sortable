@@ -1,5 +1,8 @@
 use dioxus::prelude::*;
-use dioxus_sortable::{use_sorter, NullHandling, PartialOrdBy, SortBy, Sortable, Th, UseSorter};
+use dioxus_sortable::{
+    use_sorter, Direction, NullHandling, PartialOrdBy, SortBy, Sortable, Th, UseSorter,
+    UseSorterBuilder,
+};
 use std::cmp::Ordering;
 
 fn main() {
@@ -10,7 +13,11 @@ fn main() {
 pub fn view(cx: Scope) -> Element {
     let mut data = load_data();
 
-    let sorter = use_sorter::<MyStructField>(cx);
+    let sorter = UseSorterBuilder::default()
+        .with_field(MyStructField::Second)
+        .with_direction(Direction::Descending)
+        .use_sorter(cx);
+    //let sorter = use_sorter::<MyStructField>(cx);
     sorter.sort(data.as_mut_slice());
 
     cx.render(rsx! {

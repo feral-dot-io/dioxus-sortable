@@ -24,9 +24,8 @@ pub enum SortBy {
     Reversible(Direction),
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Direction {
-    #[default]
     Ascending,
     Descending,
 }
@@ -78,15 +77,67 @@ impl SortBy {
     }
 }
 
-// TODO add builder to set initial sort params + configurable form
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct UseSorterBuilder<F> {
+    field: Option<F>,
+    direction: Option<Direction>,
+}
 
-pub fn use_sorter<F: Sortable + Default>(cx: &ScopeState) -> UseSorter<'_, F> {
-    let field = F::default();
-    let dir = field.sort_by().unwrap_or_default().direction();
-    UseSorter {
-        field: use_state(cx, || field),
-        direction: use_state(cx, || dir),
+impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
+    fn is_valid(field: Option<F>, dir: Option<Direction>) -> bool {
+        field
+            .zip(dir)
+            .map(|(field, dir)| {
+                // Check direction hasn't been restricted by field
+                match field.sort_by() {
+                    Some(SortBy::Fixed(allowed)) => allowed == dir,
+                    Some(SortBy::Reversible(_)) => true,
+                    None => false,
+                }
+            })
+            .unwrap_or(true)
     }
+
+    pub fn with_field(&self, field: F) -> Self {
+        let field = Some(field);
+        if Self::is_valid(field, self.direction) {
+            Self {
+                field,
+                direction: self.direction,
+            }
+        } else {
+            *self
+        }
+    }
+
+    pub fn with_direction(&self, dir: Direction) -> Self {
+        let direction = Some(dir);
+        if Self::is_valid(self.field, direction) {
+            Self {
+                field: self.field,
+                direction,
+            }
+        } else {
+            *self
+        }
+    }
+
+    pub fn use_sorter(self, cx: &ScopeState) -> UseSorter<F> {
+        let field = self.field.unwrap_or_default();
+        let dir = self
+            .direction
+            .unwrap_or_else(|| field.sort_by().unwrap_or_default().direction());
+        UseSorter {
+            field: use_state(cx, || field),
+            direction: use_state(cx, || dir),
+        }
+    }
+}
+
+pub fn use_sorter<F: std::fmt::Debug + Copy + Default + Sortable>(
+    cx: &ScopeState,
+) -> UseSorter<'_, F> {
+    UseSorterBuilder::default().use_sorter(cx)
 }
 
 impl<'a, F> UseSorter<'a, F> {
