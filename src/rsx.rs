@@ -72,7 +72,7 @@ struct ThSpan<'a> {
     children: Element<'a>,
 }
 
-/// Convenience helper. Renders an active or inactive element.
+/// Convenience helper. Renders an active or inactive gielement.
 fn ThSpan<'a>(cx: Scope<'a, ThSpan<'a>>) -> Element<'a> {
     let colour = if cx.props.active { "#555" } else { "#ccc" };
     let nbsp = "&nbsp;";
