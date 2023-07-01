@@ -1,7 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_sortable::{
-    use_sorter, Direction, NullHandling, PartialOrdBy, SortBy, Sortable, Th, UseSorter,
-    UseSorterBuilder,
+    Direction, NullHandling, PartialOrdBy, SortBy, Sortable, Th, UseSorterBuilder,
 };
 use std::cmp::Ordering;
 
