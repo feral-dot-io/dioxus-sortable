@@ -2,7 +2,6 @@
 use crate::{Direction, SortBy, Sortable, UseSorter};
 use dioxus::prelude::*;
 
-#[doc(hidden)]
 #[derive(Props)]
 pub struct ThProps<'a, F: 'static> {
     sorter: UseSorter<'a, F>,
@@ -10,6 +9,7 @@ pub struct ThProps<'a, F: 'static> {
     children: Element<'a>,
 }
 
+/// Convenience helper. Builds a `<th>` element with a click handler that calls [`UseSorter::toggle_field`]. Renders the current state using [`ThStatus`].
 pub fn Th<'a, F: Copy + Sortable>(cx: Scope<'a, ThProps<'a, F>>) -> Element<'a> {
     let sorter = cx.props.sorter;
     let field = cx.props.field;
@@ -25,13 +25,18 @@ pub fn Th<'a, F: Copy + Sortable>(cx: Scope<'a, ThProps<'a, F>>) -> Element<'a> 
     })
 }
 
-#[doc(hidden)]
 #[derive(PartialEq, Props)]
 pub struct ThStatusProps<'a, F: 'static> {
     sorter: UseSorter<'a, F>,
     field: F,
 }
 
+/// Convenience helper. Renders the [`Sortable`] value for a given [`UseSorter`] and field.
+///  - If the field is unsortable then render an empty string.
+///  - If the field is sortable in one direction then render an arrow pointing in that direction.
+///  - If the field is sortable in both directions then render an arrow pointing in the active direction, or a double-headed arrow if the field is inactive.
+///
+/// Active fields will be shown in bold (i.e., the current field being sorted by). Inactive fields will be greyed out.
 pub fn ThStatus<'a, F: Copy + Sortable>(cx: Scope<'a, ThStatusProps<'a, F>>) -> Element<'a> {
     let sorter = &cx.props.sorter;
     let field = cx.props.field;
@@ -67,6 +72,7 @@ struct ThSpan<'a> {
     children: Element<'a>,
 }
 
+/// Convenience helper. Renders an active or inactive element.
 fn ThSpan<'a>(cx: Scope<'a, ThSpan<'a>>) -> Element<'a> {
     let colour = if cx.props.active { "#555" } else { "#ccc" };
     let nbsp = "&nbsp;";
