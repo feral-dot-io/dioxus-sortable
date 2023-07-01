@@ -2,6 +2,7 @@
 use crate::{Direction, SortBy, Sortable, UseSorter};
 use dioxus::prelude::*;
 
+#[doc(hidden)]
 #[derive(Props)]
 pub struct ThProps<'a, F: 'static> {
     sorter: UseSorter<'a, F>,
@@ -14,7 +15,7 @@ pub fn Th<'a, F: Copy + Sortable>(cx: Scope<'a, ThProps<'a, F>>) -> Element<'a> 
     let field = cx.props.field;
     cx.render(rsx! {
         th {
-            onclick: move |_| sorter.set_field(field),
+            onclick: move |_| sorter.toggle_field(field),
             &cx.props.children
             ThStatus {
                 sorter: sorter,
@@ -24,6 +25,7 @@ pub fn Th<'a, F: Copy + Sortable>(cx: Scope<'a, ThProps<'a, F>>) -> Element<'a> 
     })
 }
 
+#[doc(hidden)]
 #[derive(PartialEq, Props)]
 pub struct ThStatusProps<'a, F: 'static> {
     sorter: UseSorter<'a, F>,

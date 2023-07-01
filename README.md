@@ -89,5 +89,6 @@ Feedback welcome.
 ## TODO
 
 - More testing.
-- Documentation.
 - Configurable rsx helpers.
+- Create a UseSorter::set_field (that also checks the direction is valid).
+- UseSorterBuilder should rely on set_field and simplify its logic.

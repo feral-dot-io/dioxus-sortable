@@ -7,30 +7,84 @@ pub struct UseSorter<'a, F: 'static> {
     direction: &'a UseState<Direction>,
 }
 
+/// Trait used by [UseSorter](UseSorter) to sort a struct by a specific field. This must be implemented on the field enum. Type `T` represents the struct (table row) that is being sorted.
+///
+/// The implementation should use the [`PartialOrd::partial_cmp`] trait to compare the field values and return the result. For example:
+/// ```rust
+/// # use dioxus_sortable::PartialOrdBy;
+/// # use std::cmp::Ordering;
+/// # #[derive(PartialEq)]
+/// struct MyStruct {
+///     first: String,
+///     second: f64, // <- Note: can return None if f64::NAN
+/// }
+///
+/// # #[derive(Copy, Clone, Debug, PartialEq)]
+/// enum MyStructField {
+///     First,
+///     Second,
+/// }
+///
+/// impl PartialOrdBy<MyStruct> for MyStructField {
+///     fn partial_cmp_by(&self, a: &MyStruct, b: &MyStruct) -> Option<Ordering> {
+///         match self {
+///             MyStructField::First => a.first.partial_cmp(&b.first),
+///             MyStructField::Second => a.second.partial_cmp(&b.second),
+///         }
+///     }
+/// }
+/// ```
 pub trait PartialOrdBy<T>: PartialEq {
+    /// Compare two values of type `T` by the field's enum. Return values of `None` are treated as `NULL` values. See [`Sortable`] for more information.
+    ///
+    /// Be careful when comparing types like `Option` which implement `Ord`. This means that `None` and `Some` have an order where we might use them as unknown / `NULL` values. This can be a surprise.
+    ///
+    /// Another issue is `f64` only implements `PartialOrd` and not `Ord` because a value can hold `f64::NAN`. In this situation `partial_cmp` will return `None` and we'll treat these values as `NULL` as expected.
     fn partial_cmp_by(&self, a: &T, b: &T) -> Option<Ordering>;
 }
 
+/// Trait used to describe how a field can be sorted. This must be implemented on the field enum.
+///
+/// Our [`PartialOrdBy`] fn may result in `None` values which we refer to as `NULL`. We borrow from SQL here to handle these values in a similar way to the [SQL ORDER BY clause](https://www.postgresql.org/docs/current/sql-select.html#SQL-ORDERBY). The PostgreSQL general form is `ORDER BY expression [ ASC | DESC | USING operator ] [ NULLS { FIRST | LAST } ] [, ...]` where:
+/// - `expression` is the field being sorted.
+/// - `ASC` and `DESC` are the sort [`Direction`].
+/// - `USING operator` is implied by [`PartialOrdBy`].
+/// - `NULLS { FIRST | LAST }` corresponds to [`NullHandling`].
+/// Meaning you can sort by ascending or descending and optionally specify `NULL` ordering.
 pub trait Sortable: PartialEq {
+    /// Describes how this field can be sorted.
     fn sort_by(&self) -> Option<SortBy>;
+
+    /// Describes how `NULL` values (when [`PartialOrdBy`] returns `None`) should be ordered when sorting. Either all at the start or the end.
+    ///
+    /// Provided implementation relies on the default (all at the end) and should be overridden if you want to change this generally or on a per-field basis.
     fn null_handling(&self) -> NullHandling {
-        NullHandling::Last
+        NullHandling::default()
     }
 }
 
+/// Describes how a field should be sorted. Returned by [`Sortable::sort_by`].
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SortBy {
+    /// This field is limited to being sorted in the one direction specified.
     Fixed(Direction),
+    /// This field can be sorted in either direction. The direction specifies the initial direction. Fields of this sort can be toggled between directions.
     Reversible(Direction),
 }
 
+/// Sort direction. Does not have a default -- implied by the field via [`SortBy`].
+///
+/// Actual sorting is done by [`PartialOrdBy`].
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Direction {
+    /// Ascending sort. A-Z, 0-9, little to big, etc.
     Ascending,
+    /// Descending sort. Z-A, opposite of ascending.
     Descending,
 }
 
 impl Direction {
+    /// Inverts the direction.
     pub fn invert(&self) -> Self {
         match self {
             Self::Ascending => Self::Descending,
@@ -39,9 +93,12 @@ impl Direction {
     }
 }
 
+/// Describes how `NULL` values should be ordered when sorting. We refer to `None` values returned from [`PartialOrdBy::partial_cmp_by`] as `NULL`. Warning: Rust's `Option::None` is not strictly equivalent to SQL's `NULL` but we borrow from SQL terminology to handle them.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum NullHandling {
+    /// Places all `NULL` values first.
     First,
+    /// Places all `NULL` values last. The default.
     #[default]
     Last,
 }
@@ -53,18 +110,23 @@ impl Default for SortBy {
 }
 
 impl SortBy {
+    /// Field may not be sorted. Convenience fn for specifying how a field may be sorted.
     pub fn unsortable() -> Option<Self> {
         None
     }
+    /// Field may only be sorted in ascending order.
     pub fn increasing() -> Option<Self> {
         Some(Self::Fixed(Direction::Ascending))
     }
+    /// Field may only be sorted in descending order.
     pub fn decreasing() -> Option<Self> {
         Some(Self::Fixed(Direction::Descending))
     }
+    /// Field may be sorted in either direction. The initial direction is ascending. This is the default.
     pub fn increasing_or_decreasing() -> Option<Self> {
         Some(Self::Reversible(Direction::Ascending))
     }
+    /// Field may be sorted in either direction. The initial direction is descending.
     pub fn decreasing_or_increasing() -> Option<Self> {
         Some(Self::Reversible(Direction::Descending))
     }
@@ -77,6 +139,9 @@ impl SortBy {
     }
 }
 
+/// Builder for [UseSorter](UseSorter). Use this to specify the field and direction of the sorter. For example by passing sort state from URL parameters.
+///
+/// Ordering of [`Self::with_field`] and [`Self::with_direction`] matters as the builder will ignore invalid combinations specified by the field's [`Sortable`]. This is to prevent the user from specifying a direction that is not allowed by the field.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct UseSorterBuilder<F> {
     field: Option<F>,
@@ -98,6 +163,9 @@ impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
             .unwrap_or(true)
     }
 
+    /// Optionally sets the initial field to sort by.
+    ///
+    /// If the direction has been set then the field will be ignored if the field does not allow the direction. For example if [`Self::with_direction`] specified a [`Direction::Ascending`] then a field's [`Sortable`] must allow this direction. That is, this example would not allow `SortBy::Fixed(Descending)`.
     pub fn with_field(&self, field: F) -> Self {
         let field = Some(field);
         if Self::is_valid(field, self.direction) {
@@ -110,6 +178,9 @@ impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
         }
     }
 
+    /// Optionally sets the initial direction to sort by.
+    ///
+    /// If the field has been set then the direction will be ignored if the field does not allow the direction. For example if a field's [`Sortable`] is `SortBy::Fixed(Ascending)` then only a [`Direction::Ascending`] can be set.
     pub fn with_direction(&self, dir: Direction) -> Self {
         let direction = Some(dir);
         if Self::is_valid(self.field, direction) {
@@ -122,6 +193,11 @@ impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
         }
     }
 
+    /// Creates Dioxus hooks to manage state. Must follow Dioxus hook rules and be called unconditionally in the same order as other hooks. See [use_sorter()] for simple usage.
+    ///
+    /// This fn (or [`Self::use_sorter`]) *must* be called or never used. See the docs on [`UseSorter::sort`] on using conditions.
+    ///
+    /// If the field or direction has not been set then the default values will be used.
     pub fn use_sorter(self, cx: &ScopeState) -> UseSorter<F> {
         let field = self.field.unwrap_or_default();
         let dir = self
@@ -134,6 +210,11 @@ impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
     }
 }
 
+/// Creates Dioxus hooks to manage state. Must follow Dioxus hook rules and be called unconditionally in the same order as other hooks. See [UseSorterBuilder](UseSorterBuilder) for more advanced usage.
+///
+/// This fn (or [`UseSorterBuilder::use_sorter`]) *must* be called or never used. See the docs on [`UseSorter::sort`] on using conditions.
+///
+/// Relies on `F::default()` for the initial value.
 pub fn use_sorter<F: std::fmt::Debug + Copy + Default + Sortable>(
     cx: &ScopeState,
 ) -> UseSorter<'_, F> {
@@ -141,11 +222,13 @@ pub fn use_sorter<F: std::fmt::Debug + Copy + Default + Sortable>(
 }
 
 impl<'a, F> UseSorter<'a, F> {
+    /// Returns the current field and direction. Can be used to recreate state with [UseSorterBuilder](UseSorterBuilder).
     pub fn get_state(&self) -> (&F, &Direction) {
         (self.field.get(), self.direction.get())
     }
 
-    pub fn set_field(&self, field: F)
+    /// Sets the sort field and toggles the direction (if applicable). Ignores unsortable fields.
+    pub fn toggle_field(&self, field: F)
     where
         F: Sortable,
     {
@@ -171,6 +254,11 @@ impl<'a, F> UseSorter<'a, F> {
         }
     }
 
+    /// Sorts items according to the current field and direction.
+    ///
+    /// This is not a hook and may be called conditionally. For example:
+    /// - If data is coming from a `use_future` then you can call this fn once it has completed.
+    /// - If you need to apply a filter, do so before calling this fn.
     pub fn sort<T>(&self, items: &mut [T])
     where
         F: PartialOrdBy<T> + Sortable,
