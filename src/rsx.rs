@@ -2,6 +2,7 @@
 use crate::{Direction, SortBy, Sortable, UseSorter};
 use dioxus::prelude::*;
 
+/// See [`Th`].
 #[derive(Props)]
 pub struct ThProps<'a, F: 'static> {
     sorter: UseSorter<'a, F>,
@@ -25,6 +26,7 @@ pub fn Th<'a, F: Copy + Sortable>(cx: Scope<'a, ThProps<'a, F>>) -> Element<'a> 
     })
 }
 
+/// See [`ThStatus`].
 #[derive(PartialEq, Props)]
 pub struct ThStatusProps<'a, F: 'static> {
     sorter: UseSorter<'a, F>,
@@ -66,6 +68,7 @@ pub fn ThStatus<'a, F: Copy + Sortable>(cx: Scope<'a, ThStatusProps<'a, F>>) -> 
     })
 }
 
+/// See [`ThSpan`].
 #[derive(Props)]
 struct ThSpan<'a> {
     active: bool,
