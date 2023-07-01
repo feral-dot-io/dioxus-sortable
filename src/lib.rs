@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
-use std::{borrow::BorrowMut, cmp::Ordering};
+use std::cmp::Ordering;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Sorter<'a, F: 'static> {
     field: &'a UseState<F>,
     direction: &'a UseState<Direction>,
@@ -206,9 +206,9 @@ fn sort_by<T, F: PartialOrdBy<T>>(
     sort_by: &F,
     dir: Direction,
     nulls: NullHandling,
-    mut items: impl BorrowMut<[T]>,
+    items: &mut [T],
 ) {
-    items.borrow_mut().sort_by(|a, b| {
+    items.sort_by(|a, b| {
         let partial = sort_by.partial_cmp_by(a, b);
         partial.map_or_else(
             || {
