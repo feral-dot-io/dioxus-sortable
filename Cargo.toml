@@ -1,0 +1,7 @@
+[package]
+name = "dioxus-sortable"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dioxus = "0.3.2"
