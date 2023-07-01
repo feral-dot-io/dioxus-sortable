@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use std::cmp::Ordering;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Sorter<'a, F: 'static> {
+pub struct UseSorter<'a, F: 'static> {
     field: &'a UseState<F>,
     direction: &'a UseState<Direction>,
 }
@@ -80,16 +80,16 @@ impl SortBy {
 
 // TODO add builder to set initial sort params + configurable form
 
-pub fn use_sorter<F: Sortable + Default>(cx: &ScopeState) -> Sorter<'_, F> {
+pub fn use_sorter<F: Sortable + Default>(cx: &ScopeState) -> UseSorter<'_, F> {
     let field = F::default();
     let dir = field.sort_by().unwrap_or_default().direction();
-    Sorter {
+    UseSorter {
         field: use_state(cx, || field),
         direction: use_state(cx, || dir),
     }
 }
 
-impl<'a, F> Sorter<'a, F> {
+impl<'a, F> UseSorter<'a, F> {
     pub fn get_state(&self) -> (&F, &Direction) {
         (self.field.get(), self.direction.get())
     }

@@ -1,10 +1,10 @@
 #![allow(non_snake_case)]
-use crate::{Direction, SortBy, Sortable, Sorter};
+use crate::{Direction, SortBy, Sortable, UseSorter};
 use dioxus::prelude::*;
 
 #[derive(Props)]
 pub struct ThProps<'a, F: 'static> {
-    sorter: Sorter<'a, F>,
+    sorter: UseSorter<'a, F>,
     field: F,
     children: Element<'a>,
 }
@@ -26,7 +26,7 @@ pub fn Th<'a, F: Copy + Sortable>(cx: Scope<'a, ThProps<'a, F>>) -> Element<'a> 
 
 #[derive(PartialEq, Props)]
 pub struct ThStatusProps<'a, F: 'static> {
-    sorter: Sorter<'a, F>,
+    sorter: UseSorter<'a, F>,
     field: F,
 }
 

@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_sortable::{use_sorter, NullHandling, PartialOrdBy, SortBy, Sortable, Sorter, Th};
+use dioxus_sortable::{use_sorter, NullHandling, PartialOrdBy, SortBy, Sortable, Th, UseSorter};
 use std::cmp::Ordering;
 
 fn main() {
@@ -13,10 +13,6 @@ pub fn view(cx: Scope) -> Element {
     let sorter = use_sorter::<MyStructField>(cx);
     sorter.sort(data.as_mut_slice());
 
-    fn fmt_f64(f: Option<f64>) -> String {
-        f.map_or_else(|| "-".to_string(), |x| x.to_string())
-    }
-
     cx.render(rsx! {
         table {
             thead {
@@ -29,6 +25,10 @@ pub fn view(cx: Scope) -> Element {
             }
             tbody {
                 data.iter().map(|row| {
+                    fn fmt_f64(f: Option<f64>) -> String {
+                        f.map_or_else(|| "-".to_string(), |x| x.to_string())
+                    }
+
                     rsx! {
                         tr {
                             td { "{row.first}" }
