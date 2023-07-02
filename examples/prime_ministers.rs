@@ -70,7 +70,6 @@ fn PrimeMinisters(cx: Scope, data: Vec<Person>) -> Element {
                         }
                     }
                     // We could also skip all the status fields entirely and have a separate form for controlling the sort state. In that situation we'd use the normal td {} elements.
-                    Th { sorter: sorter, field: PersonField::Birthplace, "Birthplace" }
                     Th { sorter: sorter, field: PersonField::Country, "Country" }
                 }
             }
