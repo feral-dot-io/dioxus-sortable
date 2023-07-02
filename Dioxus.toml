@@ -1,0 +1,27 @@
+# This builds examples/prime_ministers.rs for GitHub Pages
+# Usage: dioxus build --example prime_ministers --release
+
+[application]
+name = "dioxus-sortable"
+default_platform = "web"
+out_dir = "docs/examples/prime-ministers"
+asset_dir = "public"
+
+[web.app]
+title = "Prime ministers of GB | dioxus-sortable"
+base_path = "dioxus-sortable/examples/prime-ministers"
+
+[web.watcher]
+index_on_404 = true
+watch_path = ["src"]
+
+[web.resource]
+style = []
+script = []
+
+[web.resource.dev]
+script = []
+
+[application.plugins]
+available = true
+required = []
