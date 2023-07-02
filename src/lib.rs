@@ -20,11 +20,11 @@
 //! 6. Call [`UseSorter::sort`] to sort data. This may be called conditionally e.g., when waiting for data to arrive.
 //! 7. Create a table using [`Th`] or write your own with [`ThStatus`] and [`UseSorter::toggle_field`].
 //!
-//! ## Example
+//! ## Examples
 //!
-//! See `examples/prime_ministers.rs` for a complete example. You can modify and run it locally with `dioxus serve --example prime_ministers`
+//! See a full example of [British prime ministers](https://feral-dot-io.github.io/dioxus-sortable/examples/prime-ministers/) ([and the code](https://github.com/feral-dot-io/dioxus-sortable/blob/master/examples/prime_ministers.rs)). You can modify and run it locally with `dioxus serve --example prime_ministers`
 //!
-//! ### Minimal example
+//! A minimal example giving a tour of how to use the library is below.
 //!
 //! ```rust
 //! use dioxus::prelude::*;
