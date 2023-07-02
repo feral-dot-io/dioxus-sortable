@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! # Sortable tables for Dioxus
 //!
 //! This crate provides a hooks and components for rendering sortable tables in [Dioxus](https://dioxuslabs.com/). It can be used to sort more than just tables.

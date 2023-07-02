@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use std::cmp::Ordering;
 
+/// Stores Dioxus hooks and state of our sortable items.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct UseSorter<'a, F: 'static> {
     field: &'a UseState<F>,
@@ -91,6 +92,10 @@ impl Direction {
             Self::Descending => Self::Ascending,
         }
     }
+
+    fn from_field<F: Sortable>(field: &F) -> Direction {
+        field.sort_by().unwrap_or_default().direction()
+    }
 }
 
 /// Describes how `NULL` values should be ordered when sorting. We refer to `None` values returned from [`PartialOrdBy::partial_cmp_by`] as `NULL`. Warning: Rust's `Option::None` is not strictly equivalent to SQL's `NULL` but we borrow from SQL terminology to handle them.
@@ -131,10 +136,23 @@ impl SortBy {
         Some(Self::Reversible(Direction::Descending))
     }
 
+    /// Returns the initial / implied direction of the sort.
     pub fn direction(&self) -> Direction {
         match self {
             Self::Fixed(dir) => *dir,
             Self::Reversible(dir) => *dir,
+        }
+    }
+
+    fn ensure_direction(&self, dir: Direction) -> Direction {
+        use SortBy::*;
+        match self {
+            // Must match allowed
+            Fixed(allowed) if *allowed == dir => dir,
+            // Did not match allowed
+            Fixed(allowed) => *allowed,
+            // Any allowed
+            Reversible(_) => dir,
         }
     }
 }
@@ -142,55 +160,29 @@ impl SortBy {
 /// Builder for [UseSorter](UseSorter). Use this to specify the field and direction of the sorter. For example by passing sort state from URL parameters.
 ///
 /// Ordering of [`Self::with_field`] and [`Self::with_direction`] matters as the builder will ignore invalid combinations specified by the field's [`Sortable`]. This is to prevent the user from specifying a direction that is not allowed by the field.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct UseSorterBuilder<F> {
-    field: Option<F>,
-    direction: Option<Direction>,
+    field: F,
+    direction: Direction,
 }
 
-impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
-    fn is_valid(field: Option<F>, dir: Option<Direction>) -> bool {
-        field
-            .zip(dir)
-            .map(|(field, dir)| {
-                // Check direction hasn't been restricted by field
-                match field.sort_by() {
-                    Some(SortBy::Fixed(allowed)) => allowed == dir,
-                    Some(SortBy::Reversible(_)) => true,
-                    None => false,
-                }
-            })
-            .unwrap_or(true)
+impl<F: Default + Sortable> Default for UseSorterBuilder<F> {
+    fn default() -> Self {
+        let field = F::default();
+        let direction = Direction::from_field(&field);
+        Self { field, direction }
     }
+}
 
+impl<F: Copy + Default + Sortable> UseSorterBuilder<F> {
     /// Optionally sets the initial field to sort by.
-    ///
-    /// If the direction has been set then the field will be ignored if the field does not allow the direction. For example if [`Self::with_direction`] specified a [`Direction::Ascending`] then a field's [`Sortable`] must allow this direction. That is, this example would not allow `SortBy::Fixed(Descending)`.
     pub fn with_field(&self, field: F) -> Self {
-        let field = Some(field);
-        if Self::is_valid(field, self.direction) {
-            Self {
-                field,
-                direction: self.direction,
-            }
-        } else {
-            *self
-        }
+        Self { field, ..*self }
     }
 
-    /// Optionally sets the initial direction to sort by.
-    ///
-    /// If the field has been set then the direction will be ignored if the field does not allow the direction. For example if a field's [`Sortable`] is `SortBy::Fixed(Ascending)` then only a [`Direction::Ascending`] can be set.
-    pub fn with_direction(&self, dir: Direction) -> Self {
-        let direction = Some(dir);
-        if Self::is_valid(self.field, direction) {
-            Self {
-                field: self.field,
-                direction,
-            }
-        } else {
-            *self
-        }
+    /// Optionally sets the initial direction to sort by.[`Direction::Ascending`] can be set.
+    pub fn with_direction(&self, direction: Direction) -> Self {
+        Self { direction, ..*self }
     }
 
     /// Creates Dioxus hooks to manage state. Must follow Dioxus hook rules and be called unconditionally in the same order as other hooks. See [use_sorter()] for simple usage.
@@ -199,14 +191,9 @@ impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
     ///
     /// If the field or direction has not been set then the default values will be used.
     pub fn use_sorter(self, cx: &ScopeState) -> UseSorter<F> {
-        let field = self.field.unwrap_or_default();
-        let dir = self
-            .direction
-            .unwrap_or_else(|| field.sort_by().unwrap_or_default().direction());
-        UseSorter {
-            field: use_state(cx, || field),
-            direction: use_state(cx, || dir),
-        }
+        let sorter = use_sorter(cx);
+        sorter.set_field(self.field, self.direction);
+        sorter
     }
 }
 
@@ -215,10 +202,12 @@ impl<F: std::fmt::Debug + Copy + Default + Sortable> UseSorterBuilder<F> {
 /// This fn (or [`UseSorterBuilder::use_sorter`]) *must* be called or never used. See the docs on [`UseSorter::sort`] on using conditions.
 ///
 /// Relies on `F::default()` for the initial value.
-pub fn use_sorter<F: std::fmt::Debug + Copy + Default + Sortable>(
-    cx: &ScopeState,
-) -> UseSorter<'_, F> {
-    UseSorterBuilder::default().use_sorter(cx)
+pub fn use_sorter<F: Copy + Default + Sortable>(cx: &ScopeState) -> UseSorter<'_, F> {
+    let field = F::default();
+    UseSorter {
+        field: use_state(cx, || field),
+        direction: use_state(cx, || Direction::from_field(&field)),
+    }
 }
 
 impl<'a, F> UseSorter<'a, F> {
@@ -250,6 +239,22 @@ impl<'a, F> UseSorter<'a, F> {
                     }
                 }
                 self.field.set(field);
+            }
+        }
+    }
+
+    /// Sets the sort field and direction state directly. Ignores unsortable fields. Ignores the direction if not valid for a field.
+    pub fn set_field(&self, field: F, dir: Direction)
+    where
+        F: Sortable,
+    {
+        match field.sort_by() {
+            None => (), // Do nothing, ignore unsortable
+            Some(sort_by) => {
+                // Set state but ensure direction is valid
+                let dir = sort_by.ensure_direction(dir);
+                self.field.set(field);
+                self.direction.set(dir);
             }
         }
     }
