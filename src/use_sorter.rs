@@ -13,7 +13,6 @@ pub struct UseSorter<'a, F: 'static> {
 /// The implementation should use the [`PartialOrd::partial_cmp`] trait to compare the field values and return the result. For example:
 /// ```rust
 /// # use dioxus_sortable::PartialOrdBy;
-/// # use std::cmp::Ordering;
 /// # #[derive(PartialEq)]
 /// struct MyStruct {
 ///     first: String,
@@ -27,7 +26,7 @@ pub struct UseSorter<'a, F: 'static> {
 /// }
 ///
 /// impl PartialOrdBy<MyStruct> for MyStructField {
-///     fn partial_cmp_by(&self, a: &MyStruct, b: &MyStruct) -> Option<Ordering> {
+///     fn partial_cmp_by(&self, a: &MyStruct, b: &MyStruct) -> Option<std::cmp::Ordering> {
 ///         match self {
 ///             MyStructField::First => a.first.partial_cmp(&b.first),
 ///             MyStructField::Second => a.second.partial_cmp(&b.second),
@@ -35,6 +34,14 @@ pub struct UseSorter<'a, F: 'static> {
 ///     }
 /// }
 /// ```
+///
+/// Be careful when using [`Option::None`] or a custom enum to represent missing data (`NULL` values). As `partial_cmp` as `None` is less than `Some`:
+///
+/// ```rust
+/// # use std::cmp::Ordering;
+/// assert_eq!(Ordering::Less, None.cmp(&Some(0)));
+/// ```
+///
 pub trait PartialOrdBy<T>: PartialEq {
     /// Compare two values of type `T` by the field's enum. Return values of `None` are treated as `NULL` values. See [`Sortable`] for more information.
     ///
