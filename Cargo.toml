@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = [ "Joshua McQuistan <joshua.mcquistan@feral.io>" ]
 edition = "2021"
 description = "Sortable tables and components for Dioxus"
+repository = "https://github.com/feral-dot-io/dioxus-sortable"
 license = "LGPL-3.0-or-later"
 keywords = [ "dioxus", "ui", "gui", "wasm" ]
 categories = [ "wasm", "gui", "web-programming" ]
