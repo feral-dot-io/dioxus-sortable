@@ -24,6 +24,9 @@ fn app(cx: Scope) -> Element {
     })
 }
 
+/// Creates a sortable table of prime ministers and their birthplaces. Can be filtered by name.
+///
+/// Each column header can be clicked to sort by that column. The current sort state is displayed in the header.
 #[allow(non_snake_case)]
 #[inline_props]
 fn PrimeMinisters(cx: Scope, data: Vec<Person>) -> Element {
