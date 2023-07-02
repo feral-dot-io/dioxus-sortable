@@ -4,7 +4,7 @@
 //!
 //! Create sortable tables (and other components) of any type for [Dioxus](https://dioxuslabs.com/).
 //!
-//! The focus is on tables but can be fully customised to create any type of sortable component. Your tables can be customised however you wish. Sorting state is kept separately from the data.
+//! The focus is on tables but this library can be used to create any type of sortable component. Your tables can be customised however you wish. Sorting state is kept separately from the data.
 //!
 //! Throughout this documentation, you'll see the type `T` used to refer to the data type that you wish to sort. You'll also see `F` which is expected to be an enum referring to each sortable field of `T`. Your `F` enum should implement [`PartialOrdBy`] to sort and [`Sortable`] to describe how it may be sorted.
 //!

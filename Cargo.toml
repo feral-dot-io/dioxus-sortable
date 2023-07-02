@@ -1,7 +1,12 @@
 [package]
 name = "dioxus-sortable"
 version = "0.1.0"
+authors = [ "Joshua McQuistan <joshua.mcquistan@feral.io>" ]
 edition = "2021"
+description = "Sortable tables and components for Dioxus"
+license = "LGPL-3.0-or-later"
+keywords = [ "dioxus", "ui", "gui", "wasm" ]
+categories = [ "wasm", "gui", "web-programming" ]
 
 [dependencies]
 dioxus = "0.3.2"
