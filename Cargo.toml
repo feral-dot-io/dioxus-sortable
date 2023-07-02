@@ -1,6 +1,6 @@
 [package]
 name = "dioxus-sortable"
-version = "0.1.0"
+version = "0.1.1"
 authors = [ "Joshua McQuistan <joshua.mcquistan@feral.io>" ]
 edition = "2021"
 description = "Sortable tables and components for Dioxus"
