@@ -5,3 +5,4 @@
 - Consider making SortBy an opaque trait covered by SortBy::* builders.
 - Consider a default impl of Sortable that returns increasing_or_decreasing.
 - Consider minimising Sortable in the docs and offering it as a way to customise further.
+- Add a gif to README.md
