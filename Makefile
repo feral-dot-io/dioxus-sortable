@@ -8,7 +8,7 @@ example:
 	cp Dioxus.prime-ministers.toml Dioxus.toml
 
 	# Build release
-	dioxus build --example prime_ministers --release
+	dx build --example prime_ministers --release
 
 	# Restore config
 	rm Dioxus.toml
